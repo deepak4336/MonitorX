@@ -1,0 +1,10 @@
+{
+  "name": "@monitorx/browser",
+  "version": "0.1.0",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@monitorx/sdk-core": "*",
+    "@monitorx/shared-types": "*"
+  }
+}

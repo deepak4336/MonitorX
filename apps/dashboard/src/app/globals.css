@@ -1,0 +1,135 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 224 71.4% 4.1%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71.4% 4.1%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71.4% 4.1%;
+    --primary: 220.9 39.3% 11%;
+    --primary-foreground: 210 20% 98%;
+    --secondary: 220 14.3% 95.9%;
+    --secondary-foreground: 220.9 39.3% 11%;
+    --muted: 220 14.3% 95.9%;
+    --muted-foreground: 220 8.9% 46.1%;
+    --accent: 220 14.3% 95.9%;
+    --accent-foreground: 220.9 39.3% 11%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 224 71.4% 4.1%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 224 15% 7%;
+    --foreground: 210 20% 95%;
+    --card: 224 15% 9%;
+    --card-foreground: 210 20% 95%;
+    --popover: 224 15% 9%;
+    --popover-foreground: 210 20% 95%;
+    --primary: 210 20% 98%;
+    --primary-foreground: 220.9 39.3% 11%;
+    --secondary: 215 20% 13%;
+    --secondary-foreground: 210 20% 95%;
+    --muted: 215 20% 13%;
+    --muted-foreground: 217.9 10.6% 55%;
+    --accent: 215 20% 15%;
+    --accent-foreground: 210 20% 95%;
+    --destructive: 0 62.8% 50.6%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 215 20% 14%;
+    --input: 215 20% 14%;
+    --ring: 216 12.2% 83.9%;
+
+    /* Custom MonitorX tokens */
+    --mx-error: 0 72% 55%;
+    --mx-warning: 38 92% 50%;
+    --mx-success: 142 71% 45%;
+    --mx-info: 217 91% 60%;
+    --mx-fatal: 322 80% 58%;
+    --mx-sidebar: 224 15% 8%;
+    --mx-sidebar-border: 215 20% 12%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/30;
+  }
+}
+
+@layer components {
+  /* MonitorX-specific component styles */
+  .mx-code {
+    @apply font-mono text-xs bg-muted px-1.5 py-0.5 rounded;
+  }
+
+  .mx-stack-frame {
+    @apply font-mono text-xs leading-relaxed;
+  }
+
+  .mx-stack-frame.in-app {
+    @apply text-foreground;
+  }
+
+  .mx-stack-frame.external {
+    @apply text-muted-foreground;
+  }
+
+  .level-fatal {
+    color: hsl(var(--mx-fatal));
+  }
+  .level-error {
+    color: hsl(var(--mx-error));
+  }
+  .level-warning {
+    color: hsl(var(--mx-warning));
+  }
+  .level-info {
+    color: hsl(var(--mx-info));
+  }
+  .level-debug {
+    @apply text-muted-foreground;
+  }
+
+  .level-badge-fatal {
+    @apply bg-pink-500/15 text-pink-400 border-pink-500/20;
+  }
+  .level-badge-error {
+    @apply bg-red-500/15 text-red-400 border-red-500/20;
+  }
+  .level-badge-warning {
+    @apply bg-amber-500/15 text-amber-400 border-amber-500/20;
+  }
+  .level-badge-info {
+    @apply bg-blue-500/15 text-blue-400 border-blue-500/20;
+  }
+  .level-badge-debug {
+    @apply bg-muted text-muted-foreground border-border;
+  }
+}

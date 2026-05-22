@@ -1,0 +1,118 @@
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import type { User } from '@supabase/supabase-js';
+import { 
+  AlertTriangle, 
+  Folders, 
+  Building2, 
+  Settings, 
+  LogOut,
+  Activity,
+  ChevronDown
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { useRouter } from 'next/navigation';
+
+interface SidebarProps {
+  user: User;
+}
+
+const NAV_ITEMS = [
+  { href: '/projects', label: 'Projects', icon: Folders },
+  { href: '/organizations', label: 'Organizations', icon: Building2 },
+];
+
+export default function Sidebar({ user }: SidebarProps) {
+  const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleSignOut() {
+    const supabase = createSupabaseBrowserClient();
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
+  }
+
+  const displayName = user.user_metadata?.name ?? user.email?.split('@')[0] ?? 'User';
+  const initials = displayName.slice(0, 2).toUpperCase();
+
+  return (
+    <aside
+      className="w-56 flex flex-col border-r shrink-0"
+      style={{ 
+        backgroundColor: 'hsl(var(--mx-sidebar))',
+        borderColor: 'hsl(var(--mx-sidebar-border))'
+      }}
+    >
+      {/* Logo */}
+      <div className="h-14 flex items-center px-4 border-b"
+           style={{ borderColor: 'hsl(var(--mx-sidebar-border))' }}>
+        <Link href="/projects" className="flex items-center gap-2">
+          <div className="w-7 h-7 bg-foreground rounded-md flex items-center justify-center shrink-0">
+            <Activity className="w-4 h-4 text-background" />
+          </div>
+          <span className="font-semibold text-sm tracking-tight">MonitorX</span>
+        </Link>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 px-2 py-3 space-y-0.5">
+        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+          const active = pathname === href || pathname.startsWith(href + '/');
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                'flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors',
+                active
+                  ? 'bg-accent text-foreground font-medium'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+              )}
+            >
+              <Icon className="w-4 h-4 shrink-0" />
+              {label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* User section */}
+      <div className="p-2 border-t space-y-0.5"
+           style={{ borderColor: 'hsl(var(--mx-sidebar-border))' }}>
+        <Link
+          href="/settings"
+          className={cn(
+            'flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors',
+            pathname === '/settings'
+              ? 'bg-accent text-foreground'
+              : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+          )}
+        >
+          <Settings className="w-4 h-4 shrink-0" />
+          Settings
+        </Link>
+
+        <div className="flex items-center gap-2.5 px-2.5 py-1.5">
+          <div className="w-6 h-6 rounded-full bg-foreground/10 border border-border flex items-center justify-center shrink-0">
+            <span className="text-xs font-medium">{initials}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium truncate">{displayName}</p>
+            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+          </div>
+          <button
+            onClick={handleSignOut}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            title="Sign out"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    </aside>
+  );
+}

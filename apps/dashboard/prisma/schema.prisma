@@ -1,0 +1,246 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id         String   @id @default(uuid())
+  email      String   @unique
+  name       String?
+  avatar_url String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  organization_members OrganizationMember[]
+
+  @@map("users")
+}
+
+model Organization {
+  id         String   @id @default(uuid())
+  name       String
+  slug       String   @unique
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  members  OrganizationMember[]
+  projects Project[]
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id              String     @id @default(uuid())
+  organization_id String
+  user_id         String
+  role            MemberRole @default(developer)
+  created_at      DateTime   @default(now())
+
+  organization Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([organization_id, user_id])
+  @@map("organization_members")
+}
+
+enum MemberRole {
+  owner
+  developer
+  viewer
+}
+
+model Project {
+  id              String   @id @default(uuid())
+  name            String
+  slug            String
+  environment     String   @default("production")
+  organization_id String
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  organization  Organization  @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  api_keys      ApiKey[]
+  events        Event[]
+  issues        Issue[]
+  releases      Release[]
+  alert_rules   AlertRule[]
+  source_maps   SourceMap[]
+
+  @@unique([organization_id, slug])
+  @@map("projects")
+}
+
+model ApiKey {
+  id         String   @id @default(uuid())
+  project_id String
+  public_key String   @unique
+  label      String?  @default("Default Key")
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+
+  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@map("api_keys")
+}
+
+model Release {
+  id          String    @id @default(uuid())
+  project_id  String
+  version     String
+  environment String    @default("production")
+  deployed_at DateTime  @default(now())
+  created_at  DateTime  @default(now())
+
+  project     Project    @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  events      Event[]
+  issues      Issue[]
+  source_maps SourceMap[]
+
+  @@unique([project_id, version])
+  @@index([project_id])
+  @@map("releases")
+}
+
+model SourceMap {
+  id         String   @id @default(uuid())
+  project_id String
+  release_id String?
+  filename   String
+  content    String
+  created_at DateTime @default(now())
+
+  project Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  release Release? @relation(fields: [release_id], references: [id])
+
+  @@index([project_id])
+  @@index([release_id])
+  @@map("source_maps")
+}
+
+model Event {
+  id           String     @id @default(uuid())
+  event_id     String     @unique
+  project_id   String
+  issue_id     String?
+  release_id   String?
+  timestamp    DateTime
+  platform     String     @default("javascript")
+  message      String
+  stacktrace   Json?
+  user_agent   String?
+  url          String?
+  environment  String     @default("production")
+  level        EventLevel @default(error)
+  extra        Json?
+  raw_payload  Json
+  breadcrumbs  Json?
+  user_context Json?
+  tags         Json?
+  contexts     Json?
+  release      String?
+  created_at   DateTime   @default(now())
+
+  project     Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  issue       Issue?   @relation(fields: [issue_id], references: [id])
+  release_ref Release? @relation(fields: [release_id], references: [id])
+
+  @@index([project_id])
+  @@index([issue_id])
+  @@index([timestamp])
+  @@index([release])
+  @@map("events")
+}
+
+enum EventLevel {
+  fatal
+  error
+  warning
+  info
+  debug
+}
+
+model Issue {
+  id                String      @id @default(uuid())
+  project_id        String
+  release_id        String?
+  title             String
+  culprit           String?
+  fingerprint       String
+  level             EventLevel  @default(error)
+  status            IssueStatus @default(unresolved)
+  occurrences       Int         @default(1)
+  affected_users    Int         @default(0)
+  environment       String      @default("production")
+  first_seen        String?
+  last_seen_release String?
+  first_seen_at     DateTime    @default(now())
+  last_seen_at      DateTime    @default(now())
+  created_at        DateTime    @default(now())
+  updated_at        DateTime    @updatedAt
+
+  project  Project    @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  release  Release?   @relation(fields: [release_id], references: [id])
+  events   Event[]
+  tags     IssueTag[]
+
+  @@unique([project_id, fingerprint])
+  @@index([project_id])
+  @@index([fingerprint])
+  @@index([last_seen_at])
+  @@index([status])
+  @@map("issues")
+}
+
+enum IssueStatus {
+  unresolved
+  resolved
+  ignored
+  regressed
+}
+
+model IssueTag {
+  id       String @id @default(uuid())
+  issue_id String
+  key      String
+  value    String
+
+  issue Issue @relation(fields: [issue_id], references: [id], onDelete: Cascade)
+
+  @@index([issue_id])
+  @@index([key, value])
+  @@map("issue_tags")
+}
+
+model AlertRule {
+  id           String       @id @default(uuid())
+  project_id   String
+  name         String
+  trigger      AlertTrigger
+  channel      AlertChannel
+  destination  String
+  is_active    Boolean      @default(true)
+  cooldown_min Int          @default(60)
+  last_fired   DateTime?
+  created_at   DateTime     @default(now())
+
+  project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@index([project_id])
+  @@map("alert_rules")
+}
+
+enum AlertTrigger {
+  new_issue
+  regression
+  spike
+}
+
+enum AlertChannel {
+  email
+  slack
+}
