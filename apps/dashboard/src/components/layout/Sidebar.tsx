@@ -3,15 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
-import { 
-  AlertTriangle, 
-  Folders, 
-  Building2, 
-  Settings, 
-  LogOut,
-  Activity,
-  ChevronDown
-} from 'lucide-react';
+import { Folders, Building2, LogOut, Activity, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
@@ -23,6 +15,7 @@ interface SidebarProps {
 const NAV_ITEMS = [
   { href: '/projects', label: 'Projects', icon: Folders },
   { href: '/organizations', label: 'Organizations', icon: Building2 },
+  { href: '/features', label: 'Features', icon: Sparkles },
 ];
 
 export default function Sidebar({ user }: SidebarProps) {
@@ -42,7 +35,7 @@ export default function Sidebar({ user }: SidebarProps) {
   return (
     <aside
       className="w-56 flex flex-col border-r shrink-0"
-      style={{ 
+      style={{
         backgroundColor: 'hsl(var(--mx-sidebar))',
         borderColor: 'hsl(var(--mx-sidebar-border))'
       }}
@@ -83,19 +76,6 @@ export default function Sidebar({ user }: SidebarProps) {
       {/* User section */}
       <div className="p-2 border-t space-y-0.5"
            style={{ borderColor: 'hsl(var(--mx-sidebar-border))' }}>
-        <Link
-          href="/settings"
-          className={cn(
-            'flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors',
-            pathname === '/settings'
-              ? 'bg-accent text-foreground'
-              : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
-          )}
-        >
-          <Settings className="w-4 h-4 shrink-0" />
-          Settings
-        </Link>
-
         <div className="flex items-center gap-2.5 px-2.5 py-1.5">
           <div className="w-6 h-6 rounded-full bg-foreground/10 border border-border flex items-center justify-center shrink-0">
             <span className="text-xs font-medium">{initials}</span>
