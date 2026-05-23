@@ -39,7 +39,7 @@ export async function GET(request: NextRequest, { params }: Params) {
   const [issues, total] = await Promise.all([
     prisma.issue.findMany({
       where,
-      orderBy: { last_seen: 'desc' },
+      orderBy: { last_seen_at: 'desc' },
       skip,
       take: limit,
     }),

@@ -15,46 +15,37 @@ interface OrgState {
   organizations: OrgWithMeta[];
   currentOrgId: string | null;
   loading: boolean;
-
   setOrganizations: (orgs: OrgWithMeta[]) => void;
   setCurrentOrg: (id: string) => void;
   addOrganization: (org: OrgWithMeta) => void;
   setLoading: (loading: boolean) => void;
-
-  get currentOrg(): OrgWithMeta | undefined;
 }
 
 export const useOrgStore = create<OrgState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       organizations: [],
       currentOrgId: null,
       loading: false,
 
-      setOrganizations: (orgs) =>
+      setOrganizations: (orgs: OrgWithMeta[]) =>
         set((state) => ({
           organizations: orgs,
           currentOrgId: state.currentOrgId ?? orgs[0]?.id ?? null,
         })),
 
-      setCurrentOrg: (id) => set({ currentOrgId: id }),
+      setCurrentOrg: (id: string) => set({ currentOrgId: id }),
 
-      addOrganization: (org) =>
+      addOrganization: (org: OrgWithMeta) =>
         set((state) => ({
           organizations: [...state.organizations, org],
           currentOrgId: state.currentOrgId ?? org.id,
         })),
 
-      setLoading: (loading) => set({ loading }),
-
-      get currentOrg() {
-        const state = get();
-        return state.organizations.find((o) => o.id === state.currentOrgId);
-      },
+      setLoading: (loading: boolean) => set({ loading }),
     }),
     {
       name: 'monitorx-org',
-      partialState: (state) => ({ currentOrgId: state.currentOrgId }),
-    } as Parameters<typeof persist>[1]
+    }
   )
 );
