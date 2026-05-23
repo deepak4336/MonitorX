@@ -41,7 +41,7 @@ export default async function OrganizationsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {memberships.map(({ organization: org, role }) => (
+            {memberships.map(({ organization: org, role }: { organization: any; role: any }) => (
               <div key={org.id} className="rounded-lg border bg-card p-5 space-y-4">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
@@ -54,7 +54,7 @@ export default async function OrganizationsPage() {
                     </div>
                   </div>
                   {role === 'owner' && (
-                    <Crown className="w-3.5 h-3.5 text-amber-400" title="Owner" />
+                    <Crown className="w-3.5 h-3.5 text-amber-400" />
                   )}
                 </div>
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
