@@ -63,10 +63,10 @@ export default async function IssuesPage({ params, searchParams }: Props) {
     }),
   ]);
 
-  const countByStatus = counts.reduce((acc, c) => {
-    acc[c.status] = c._count;
-    return acc;
-  }, {} as Record<string, number>);
+  const countByStatus = counts.reduce((acc: Record<string, number>, c) => {
+  acc[c.status] = c._count;
+  return acc;
+}, {} as Record<string, number>);
 
   const dsn = project.api_keys[0]
     ? buildDsn(project.api_keys[0].public_key, project.id)
