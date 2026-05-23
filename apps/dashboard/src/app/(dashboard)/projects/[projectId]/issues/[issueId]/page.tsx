@@ -61,7 +61,7 @@ export default async function IssueDetailPage({ params }: Props) {
   }));
 
   const serializedEvents = JSON.parse(JSON.stringify(
-    issue.events.map((e) => ({
+    issue.events.map((e: any) => ({
       id: e.id,
       event_id: e.event_id,
       timestamp: e.timestamp,
