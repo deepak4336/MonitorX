@@ -63,7 +63,7 @@ export default async function IssuesPage({ params, searchParams }: Props) {
     }),
   ]);
 
-  const countByStatus = counts.reduce((acc: Record<string, number>, c) => {
+  const countByStatus = counts.reduce((acc: Record<string, number>, c: { status: string; _count: number }) => {
   acc[c.status] = c._count;
   return acc;
 }, {} as Record<string, number>);
