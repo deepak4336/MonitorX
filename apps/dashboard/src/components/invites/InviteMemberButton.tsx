@@ -1,20 +1,21 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { UserPlus, X, Mail, Shield } from 'lucide-react';
 
 interface Props {
   orgId: string;
-  onInviteSent: () => void;
 }
 
-export default function InviteMemberButton({ orgId, onInviteSent }: Props) {
+export default function InviteMemberButton({ orgId }: Props) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('developer');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const router = useRouter();
 
   async function handleSubmit() {
     if (!email) { setError('Email is required'); return; }
@@ -35,7 +36,7 @@ export default function InviteMemberButton({ orgId, onInviteSent }: Props) {
       setSuccess(`Invite sent to ${email}!`);
       setEmail('');
       setRole('developer');
-      onInviteSent();
+      router.refresh();
       setTimeout(() => { setOpen(false); setSuccess(''); }, 2000);
     } catch {
       setError('Something went wrong. Please try again.');
@@ -58,7 +59,6 @@ export default function InviteMemberButton({ orgId, onInviteSent }: Props) {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-xl border border-border bg-card shadow-2xl">
 
-            {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <div className="flex items-center gap-2">
                 <UserPlus className="w-4 h-4" />
@@ -70,7 +70,6 @@ export default function InviteMemberButton({ orgId, onInviteSent }: Props) {
               </button>
             </div>
 
-            {/* Body */}
             <div className="px-5 py-5 space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">

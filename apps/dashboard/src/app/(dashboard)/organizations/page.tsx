@@ -84,7 +84,7 @@ export default async function OrganizationsPage() {
                       </span>
                     </div>
                     {(role === 'owner' || role === 'developer') && (
-                      <InviteMemberButton orgId={org.id} onInviteSent={() => {}} />
+                      <InviteMemberButton orgId={org.id} />
                     )}
                   </div>
                 </div>
