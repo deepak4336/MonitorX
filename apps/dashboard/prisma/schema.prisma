@@ -30,6 +30,7 @@ model Organization {
 
   members  OrganizationMember[]
   projects Project[]
+  invites  OrganizationInvite[]
 
   @@map("organizations")
 }
@@ -232,6 +233,31 @@ model AlertRule {
 
   @@index([project_id])
   @@map("alert_rules")
+}
+
+model OrganizationInvite {
+  id              String       @id @default(uuid())
+  organization_id String
+  email           String
+  role            MemberRole   @default(developer)
+  token           String       @unique @default(uuid())
+  status          InviteStatus @default(pending)
+  invited_by      String
+  expires_at      DateTime
+  created_at      DateTime     @default(now())
+
+  organization Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([organization_id])
+  @@index([email])
+  @@map("organization_invites")
+}
+
+enum InviteStatus {
+  pending
+  accepted
+  expired
 }
 
 enum AlertTrigger {
