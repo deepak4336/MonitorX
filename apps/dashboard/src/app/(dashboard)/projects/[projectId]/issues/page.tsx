@@ -4,13 +4,21 @@ import { getUser } from '@/lib/supabase-server';
 import { prisma } from '@/lib/prisma';
 import PageHeader from '@/components/layout/PageHeader';
 import LevelBadge from '@/components/ui/LevelBadge';
+import IssueFilters from '@/components/issues/IssueFilters';
 import { formatDistanceToNow } from 'date-fns';
 import { AlertTriangle, CheckCircle2, EyeOff, Activity, Settings } from 'lucide-react';
 import { buildDsn } from '@/lib/utils';
 
 interface Props {
   params: { projectId: string };
-  searchParams: { status?: string; level?: string };
+  searchParams: {
+    status?: string;
+    level?: string;
+    environment?: string;
+    release?: string;
+    search?: string;
+    dateRange?: string;
+  };
 }
 
 export default async function IssuesPage({ params, searchParams }: Props) {
@@ -44,13 +52,32 @@ export default async function IssuesPage({ params, searchParams }: Props) {
     | 'debug'
     | undefined;
 
-  const where = {
+  const search = searchParams.search;
+  const environment = searchParams.environment;
+  const release = searchParams.release;
+  const dateRange = searchParams.dateRange;
+
+  // Date range filter
+  let dateFilter: Date | undefined;
+  if (dateRange === '24h') {
+    dateFilter = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  } else if (dateRange === '7d') {
+    dateFilter = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  } else if (dateRange === '30d') {
+    dateFilter = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  }
+
+  const where: any = {
     project_id: params.projectId,
     ...(status !== 'all' ? { status } : {}),
     ...(level ? { level } : {}),
+    ...(environment ? { environment } : {}),
+    ...(release ? { last_seen_release: release } : {}),
+    ...(search ? { title: { contains: search, mode: 'insensitive' } } : {}),
+    ...(dateFilter ? { last_seen_at: { gte: dateFilter } } : {}),
   };
 
-  const [issues, counts] = await Promise.all([
+  const [issues, counts, releases, environments] = await Promise.all([
     prisma.issue.findMany({
       where,
       orderBy: { last_seen_at: 'desc' },
@@ -61,16 +88,32 @@ export default async function IssuesPage({ params, searchParams }: Props) {
       where: { project_id: params.projectId },
       _count: true,
     }),
+    // Get available releases for filter dropdown
+    prisma.release.findMany({
+      where: { project_id: params.projectId },
+      select: { version: true },
+      orderBy: { deployed_at: 'desc' },
+      take: 20,
+    }),
+    // Get available environments
+    prisma.issue.groupBy({
+      by: ['environment'],
+      where: { project_id: params.projectId },
+      _count: true,
+    }),
   ]);
 
-  const countByStatus = counts.reduce((acc: Record<string, number>, c: { status: string; _count: number }) => {
-  acc[c.status] = c._count;
-  return acc;
-}, {} as Record<string, number>);
+  const countByStatus = counts.reduce((acc: Record<string, number>, c: any) => {
+    acc[c.status] = c._count;
+    return acc;
+  }, {} as Record<string, number>);
 
   const dsn = project.api_keys[0]
     ? buildDsn(project.api_keys[0].public_key, project.id)
     : null;
+
+  const availableReleases = releases.map((r) => r.version);
+  const availableEnvironments = environments.map((e: any) => e.environment);
 
   const STATUS_TABS = [
     { key: 'unresolved', label: 'Unresolved', icon: AlertTriangle },
@@ -121,12 +164,28 @@ export default async function IssuesPage({ params, searchParams }: Props) {
               <Icon className="w-3.5 h-3.5" />
               {label}
               {count !== undefined && count > 0 && (
-                <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full">{count}</span>
+                <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full">
+                  {count}
+                </span>
               )}
             </Link>
           );
         })}
       </div>
+
+      {/* Search & Filters */}
+      <IssueFilters
+        projectId={params.projectId}
+        availableReleases={availableReleases}
+        availableEnvironments={availableEnvironments}
+      />
+
+      {/* Results count */}
+      {(search || level || environment || release || dateRange) && (
+        <div className="px-6 py-2 text-xs text-muted-foreground border-b">
+          Found <strong className="text-foreground">{issues.length}</strong> issue{issues.length !== 1 ? 's' : ''} matching your filters
+        </div>
+      )}
 
       {/* Issues list */}
       <div className="divide-y divide-border">
@@ -134,7 +193,9 @@ export default async function IssuesPage({ params, searchParams }: Props) {
           <div className="text-center py-20">
             <CheckCircle2 className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
             <p className="text-sm text-muted-foreground">
-              {status === 'unresolved'
+              {search || level || environment || release || dateRange
+                ? 'No issues match your filters'
+                : status === 'unresolved'
                 ? 'No unresolved issues — great job!'
                 : `No ${status} issues`}
             </p>
