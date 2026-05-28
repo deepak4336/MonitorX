@@ -172,19 +172,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 9. Fire Alerts (non-blocking)
+    // 9. Fire Alerts (blocking — must complete before response on Netlify)
     const issue = await prisma.issue.findUnique({ where: { id: issueId } });
     if (issue) {
       const isNew = issue.occurrences === 1;
       const isRegression = issue.status === 'regressed';
       if (isNew || isRegression) {
-        fireAlerts({
-          projectId: apiKey.project_id,
-          issueId,
-          issueTitle: issue.title,
-          trigger: isRegression ? 'regression' : 'new_issue',
-          environment: eventForGrouping.environment,
-        }).catch(console.error);
+        try {
+          await fireAlerts({
+            projectId: apiKey.project_id,
+            issueId,
+            issueTitle: issue.title,
+            trigger: isRegression ? 'regression' : 'new_issue',
+            environment: eventForGrouping.environment,
+          });
+        } catch (err) {
+          console.error('[Events] fireAlerts error:', err);
+        }
       }
     }
 
