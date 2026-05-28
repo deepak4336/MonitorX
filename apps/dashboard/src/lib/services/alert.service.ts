@@ -1,11 +1,16 @@
 import { prisma } from '../prisma';
+import { sendAlertEmail } from './email.service';
 
 interface AlertContext {
   projectId: string;
   issueId: string;
   issueTitle: string;
+  issueLevel?: string;
+  issueCulprit?: string;
+  occurrences?: number;
   trigger: 'new_issue' | 'regression' | 'spike';
   environment: string;
+  projectName?: string;
 }
 
 export async function fireAlerts(ctx: AlertContext): Promise<void> {
@@ -30,7 +35,7 @@ export async function fireAlerts(ctx: AlertContext): Promise<void> {
         await sendSlackAlert(rule.destination, ctx);
       }
 
-      await prisma.alertRule.update({
+      await prisma.alertRule.updateMany({
         where: { id: rule.id },
         data: { last_fired: new Date() },
       });
@@ -41,7 +46,39 @@ export async function fireAlerts(ctx: AlertContext): Promise<void> {
 }
 
 async function sendEmailAlert(email: string, ctx: AlertContext): Promise<void> {
-  console.log(`[AlertService] EMAIL → ${email} | ${ctx.trigger} | ${ctx.issueTitle}`);
+  let projectName = ctx.projectName;
+  if (!projectName) {
+    const project = await prisma.project.findUnique({
+      where: { id: ctx.projectId },
+      select: { name: true },
+    });
+    projectName = project?.name ?? 'Unknown Project';
+  }
+
+  let issueLevel = ctx.issueLevel;
+  let issueCulprit = ctx.issueCulprit;
+  let occurrences = ctx.occurrences;
+  if (!issueLevel || !occurrences) {
+    const issue = await prisma.issue.findUnique({
+      where: { id: ctx.issueId },
+      select: { level: true, culprit: true, occurrences: true },
+    });
+    issueLevel = issue?.level ?? 'error';
+    issueCulprit = issue?.culprit ?? undefined;
+    occurrences = issue?.occurrences ?? 1;
+  }
+
+  await sendAlertEmail({
+    to: email,
+    projectName,
+    projectId: ctx.projectId,
+    issueId: ctx.issueId,
+    issueTitle: ctx.issueTitle,
+    issueLevel,
+    issueCulprit,
+    triggerType: ctx.trigger,
+    occurrences,
+  });
 }
 
 async function sendSlackAlert(webhookUrl: string, ctx: AlertContext): Promise<void> {
