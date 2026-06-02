@@ -65,7 +65,7 @@ model Project {
   updated_at      DateTime @updatedAt
 
   organization  Organization  @relation(fields: [organization_id], references: [id], onDelete: Cascade)
-  api_keys      ApiKey[]
+  site_keys     SiteKey[]
   events        Event[]
   issues        Issue[]
   releases      Release[]
@@ -76,17 +76,18 @@ model Project {
   @@map("projects")
 }
 
-model ApiKey {
+model SiteKey {
   id         String   @id @default(uuid())
   project_id String
-  public_key String   @unique
+  key        String   @unique
   label      String?  @default("Default Key")
   is_active  Boolean  @default(true)
   created_at DateTime @default(now())
 
   project Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
 
-  @@map("api_keys")
+  @@index([key])
+  @@map("site_keys")
 }
 
 model Release {
@@ -137,6 +138,7 @@ model Event {
   url          String?
   environment  String     @default("production")
   level        EventLevel @default(error)
+  event_type   String     @default("error")
   extra        Json?
   raw_payload  Json
   breadcrumbs  Json?
@@ -154,6 +156,7 @@ model Event {
   @@index([issue_id])
   @@index([timestamp])
   @@index([release])
+  @@index([event_type])
   @@map("events")
 }
 
@@ -163,6 +166,7 @@ enum EventLevel {
   warning
   info
   debug
+  log
 }
 
 model Issue {

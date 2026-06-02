@@ -22,7 +22,7 @@ export async function OPTIONS() {
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. Validate DSN Key
+    // 1. Validate Key
     const publicKey =
       request.headers.get('X-MonitorX-Key') ??
       request.headers.get('x-monitorx-key');
@@ -34,17 +34,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const apiKey = await prisma.apiKey.findUnique({
-      where: { public_key: publicKey },
-      include: { project: true },
-    });
+    // Support both new Site Keys and old API Keys
+    let projectId: string;
+    let projectEnv: string;
 
-    if (!apiKey || !apiKey.is_active) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid or inactive API key' },
-        { status: 401, headers: CORS_HEADERS }
-      );
-    }
+    const siteKey = await prisma.siteKey.findUnique({
+      where: { key: publicKey },
+      include: { project: true },
+    }).catch(() => null);
+
+    if (siteKey && siteKey.is_active) {
+      projectId = siteKey.project_id;
+      projectEnv = siteKey.project.environment;
+    } else {
+  return NextResponse.json(
+    { success: false, error: 'Invalid or inactive key' },
+    { status: 401, headers: CORS_HEADERS }
+  );
+}
 
     // 2. Parse Payload
     let body: unknown;
@@ -59,7 +66,7 @@ export async function POST(request: NextRequest) {
 
     const parsed = IngestEventSchema.parse({
       ...(body as Record<string, unknown>),
-      project_id: apiKey.project_id,
+      project_id: projectId,
     });
 
     // 3. Resolve Release
@@ -68,14 +75,14 @@ export async function POST(request: NextRequest) {
       const release = await prisma.release.upsert({
         where: {
           project_id_version: {
-            project_id: apiKey.project_id,
+            project_id: projectId,
             version: parsed.release,
           },
         },
         create: {
-          project_id: apiKey.project_id,
+          project_id: projectId,
           version: parsed.release,
-          environment: parsed.environment ?? apiKey.project.environment,
+          environment: parsed.environment ?? projectEnv,
         },
         update: {},
       });
@@ -87,13 +94,16 @@ export async function POST(request: NextRequest) {
     if (stacktrace?.frames?.length && parsed.release) {
       const resolved = await resolveStackTrace(
         stacktrace.frames as any,
-        apiKey.project_id,
+        projectId,
         parsed.release
       );
       stacktrace = { frames: resolved as any };
     }
 
     // 5. Build event object
+    const bodyAsRecord = body as Record<string, unknown>;
+    const eventType = (bodyAsRecord.event_type as string) ?? 'error';
+
     const eventForGrouping = {
       event_id: parsed.event_id ?? generateEventId(),
       timestamp: parsed.timestamp ?? new Date().toISOString(),
@@ -102,9 +112,10 @@ export async function POST(request: NextRequest) {
       stacktrace,
       user_agent: parsed.user_agent,
       url: parsed.url,
-      environment: parsed.environment ?? apiKey.project.environment,
+      environment: parsed.environment ?? projectEnv,
       level: parsed.level ?? 'error',
-      project_id: apiKey.project_id,
+      event_type: eventType,
+      project_id: projectId,
       extra: parsed.extra,
       breadcrumbs: parsed.breadcrumbs,
       user: parsed.user,
@@ -113,23 +124,27 @@ export async function POST(request: NextRequest) {
       release: parsed.release,
     };
 
-    // 6. Upsert Issue
-    const issueId = await upsertIssue(
-      eventForGrouping as any,
-      apiKey.project_id,
-      releaseId
-    );
+    // 6. Upsert Issue (only for error/api_error types)
+    let issueId: string | null = null;
+    if (eventType === 'error' || eventType === 'api_error') {
+      issueId = await upsertIssue(
+        eventForGrouping as any,
+        projectId,
+        releaseId
+      );
+    }
 
     // 7. Store Event
     const eventRecord = await prisma.event.create({
       data: {
         event_id: eventForGrouping.event_id,
-        project_id: apiKey.project_id,
+        project_id: projectId,
         issue_id: issueId,
         release_id: releaseId,
         timestamp: new Date(eventForGrouping.timestamp),
         platform: eventForGrouping.platform,
         message: eventForGrouping.message,
+        event_type: eventForGrouping.event_type,
         stacktrace: eventForGrouping.stacktrace
           ? JSON.parse(JSON.stringify(eventForGrouping.stacktrace))
           : null,
@@ -158,12 +173,12 @@ export async function POST(request: NextRequest) {
     });
 
     // 8. Store Issue Tags
-    if (eventForGrouping.tags) {
+    if (issueId && eventForGrouping.tags) {
       const tagEntries = Object.entries(eventForGrouping.tags);
       if (tagEntries.length > 0) {
         await prisma.issueTag.createMany({
           data: tagEntries.map(([key, value]) => ({
-            issue_id: issueId,
+            issue_id: issueId!,
             key,
             value,
           })),
@@ -172,22 +187,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 9. Fire Alerts (blocking — must complete before response on Netlify)
-    const issue = await prisma.issue.findUnique({ where: { id: issueId } });
-    if (issue) {
-      const isNew = issue.occurrences === 1;
-      const isRegression = issue.status === 'regressed';
-      if (isNew || isRegression) {
-        try {
-          await fireAlerts({
-            projectId: apiKey.project_id,
-            issueId,
-            issueTitle: issue.title,
-            trigger: isRegression ? 'regression' : 'new_issue',
-            environment: eventForGrouping.environment,
-          });
-        } catch (err) {
-          console.error('[Events] fireAlerts error:', err);
+    // 9. Fire Alerts — only for error events
+    if (issueId) {
+      const issue = await prisma.issue.findUnique({ where: { id: issueId } });
+      if (issue) {
+        const isNew = issue.occurrences === 1;
+        const isRegression = issue.status === 'regressed';
+        if (isNew || isRegression) {
+          try {
+            await fireAlerts({
+              projectId,
+              issueId,
+              issueTitle: issue.title,
+              trigger: isRegression ? 'regression' : 'new_issue',
+              environment: eventForGrouping.environment,
+            });
+          } catch (err) {
+            console.error('[Events] fireAlerts error:', err);
+          }
         }
       }
     }
