@@ -15,13 +15,13 @@ export const StacktraceSchema = z.object({
   frames: z.array(StackFrameSchema),
 });
 
-export const EventLevelSchema = z.enum(['fatal', 'error', 'warning', 'info', 'debug']);
+export const EventLevelSchema = z.enum(['fatal', 'error', 'warning', 'info', 'debug', 'log']);
 
 export const BreadcrumbSchema = z.object({
   type: z.string(),
   category: z.string(),
   message: z.string(),
-  level: EventLevelSchema.optional(),
+  level: z.string().optional(),
   timestamp: z.string(),
   data: z.record(z.unknown()).optional(),
 });
