@@ -34,7 +34,14 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Public routes that don't require auth
-  const publicRoutes = ['/login', '/register', '/api/events'];
+  const publicRoutes = [
+    '/login',
+    '/register',
+    '/api/events',
+    '/api/invite',
+    '/invite',
+    '/monitorx.js',
+  ];
   const isPublic = publicRoutes.some((r) => pathname.startsWith(r));
 
   if (!isPublic) {
@@ -49,6 +56,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|monitorx\\.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
