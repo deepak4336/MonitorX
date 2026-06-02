@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getUser } from '@/lib/supabase-server';
 import { prisma } from '@/lib/prisma';
-import { buildDsn } from '@/lib/utils';
 import PageHeader from '@/components/layout/PageHeader';
 import SDKTestClient from '@/components/dashboard/SDKTestClient';
 import AlertRulesPanel from '@/components/dashboard/AlertRulesPanel';
@@ -18,7 +17,7 @@ export default async function ProjectSettingsPage({ params }: Props) {
   const project = await prisma.project.findUnique({
     where: { id: params.projectId },
     include: {
-      api_keys: { where: { is_active: true }, take: 1 },
+      site_keys: { where: { is_active: true }, take: 1 },
       organization: { include: { members: { where: { user_id: user.id } } } },
       alert_rules: { orderBy: { created_at: 'desc' } },
       source_maps: {
@@ -30,9 +29,8 @@ export default async function ProjectSettingsPage({ params }: Props) {
 
   if (!project || project.organization.members.length === 0) redirect('/projects');
 
-  const dsn = project.api_keys[0]
-    ? buildDsn(project.api_keys[0].public_key, project.id)
-    : null;
+  const siteKey = project.site_keys[0]?.key ?? null;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://monitorex.netlify.app';
 
   return (
     <div>
@@ -51,54 +49,44 @@ export default async function ProjectSettingsPage({ params }: Props) {
       />
       <div className="p-6 space-y-10 max-w-3xl">
 
-        {/* DSN */}
+        {/* Site Key */}
         <section className="space-y-3">
           <div>
-            <h2 className="text-sm font-semibold">DSN (Data Source Name)</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Use this to initialize the SDK.</p>
+            <h2 className="text-sm font-semibold">Site Key</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Use this key to authenticate MonitorX on your website.
+            </p>
           </div>
-          {dsn && (
+          {siteKey ? (
             <code className="block font-mono text-xs bg-muted px-3 py-2.5 rounded-md border truncate">
-              {dsn}
+              {siteKey}
             </code>
+          ) : (
+            <div className="rounded-lg border border-dashed border-border px-4 py-6 text-center">
+              <p className="text-xs text-muted-foreground mb-3">No site key generated yet.</p>
+              <GenerateSiteKeyButton projectId={project.id} />
+            </div>
           )}
         </section>
 
-        {/* Integration snippet */}
+        {/* Script Installation */}
         <section className="space-y-3">
           <div>
-            <h2 className="text-sm font-semibold">SDK Integration (Phase 2)</h2>
+            <h2 className="text-sm font-semibold">Script Installation</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Full Phase 2 initialization with all features.
+              Add this snippet to the <code className="bg-muted px-1 rounded">&lt;head&gt;</code> of your website. No npm install needed.
             </p>
           </div>
           <div className="rounded-lg border bg-muted/30 overflow-auto">
-            <pre className="font-mono text-xs p-4 leading-relaxed">{`import * as MonitorX from "@monitorx/browser";
-
-MonitorX.init({
-  dsn: "${dsn ?? 'YOUR_DSN_HERE'}",
-  environment: "${project.environment}",
-  release: "v1.0.0",
-  debug: false,
-  sampleRate: 1.0,
-  maxBreadcrumbs: 50,
-});
-
-// Set user context after login
-MonitorX.setUser({ id: "123", email: "user@example.com" });
-
-// Add tags for filtering
-MonitorX.setTag("plan", "premium");
-MonitorX.setTag("region", "india");
-
-// Manual captures
-MonitorX.captureException(new Error("Something broke"));
-MonitorX.captureMessage("Checkout completed", "info");`}</pre>
+            <pre className="font-mono text-xs p-4 leading-relaxed">{`<script
+  src="${appUrl}/monitorx.js"
+  data-monitorx-key="${siteKey ?? 'YOUR_SITE_KEY_HERE'}">
+</script>`}</pre>
           </div>
         </section>
 
         {/* SDK Test */}
-        {dsn && (
+        {siteKey && (
           <section className="space-y-3">
             <div>
               <h2 className="text-sm font-semibold">Test SDK Integration</h2>
@@ -106,7 +94,7 @@ MonitorX.captureMessage("Checkout completed", "info");`}</pre>
                 Send test events to verify the pipeline.
               </p>
             </div>
-            <SDKTestClient dsn={dsn} projectId={project.id} />
+            <SDKTestClient dsn={siteKey} projectId={project.id} />
           </section>
         )}
 
@@ -165,7 +153,35 @@ MonitorX.captureMessage("Checkout completed", "info");`}</pre>
             ))}
           </div>
         </section>
+
       </div>
     </div>
+  );
+}
+
+// Client component for generating site key
+function GenerateSiteKeyButton({ projectId }: { projectId: string }) {
+  return (
+    <form action={async () => {
+      'use server';
+      const { prisma } = await import('@/lib/prisma');
+      const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+      let key = 'mx_live_';
+      for (let i = 0; i < 16; i++) {
+        key += chars[Math.floor(Math.random() * chars.length)];
+      }
+      await prisma.siteKey.create({
+        data: { project_id: projectId, key, label: 'Default Key' },
+      });
+      const { revalidatePath } = await import('next/cache');
+      revalidatePath(`/projects/${projectId}/settings`);
+    }}>
+      <button
+        type="submit"
+        className="h-8 px-4 rounded-md bg-foreground text-background text-xs font-medium hover:bg-foreground/90 transition-colors"
+      >
+        Generate Site Key
+      </button>
+    </form>
   );
 }

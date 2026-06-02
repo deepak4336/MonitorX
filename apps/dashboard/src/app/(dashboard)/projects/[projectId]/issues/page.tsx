@@ -7,7 +7,6 @@ import LevelBadge from '@/components/ui/LevelBadge';
 import IssueFilters from '@/components/issues/IssueFilters';
 import { formatDistanceToNow } from 'date-fns';
 import { AlertTriangle, CheckCircle2, EyeOff, Activity, Settings } from 'lucide-react';
-import { buildDsn } from '@/lib/utils';
 
 interface Props {
   params: { projectId: string };
@@ -31,7 +30,7 @@ export default async function IssuesPage({ params, searchParams }: Props) {
       organization: {
         include: { members: { where: { user_id: user.id } } },
       },
-      api_keys: { where: { is_active: true }, take: 1 },
+      site_keys: { where: { is_active: true }, take: 1 },
     },
   });
 
@@ -88,14 +87,12 @@ export default async function IssuesPage({ params, searchParams }: Props) {
       where: { project_id: params.projectId },
       _count: true,
     }),
-    // Get available releases for filter dropdown
     prisma.release.findMany({
       where: { project_id: params.projectId },
       select: { version: true },
       orderBy: { deployed_at: 'desc' },
       take: 20,
     }),
-    // Get available environments
     prisma.issue.groupBy({
       by: ['environment'],
       where: { project_id: params.projectId },
@@ -108,9 +105,7 @@ export default async function IssuesPage({ params, searchParams }: Props) {
     return acc;
   }, {} as Record<string, number>);
 
-  const dsn = project.api_keys[0]
-    ? buildDsn(project.api_keys[0].public_key, project.id)
-    : null;
+  const siteKey = project.site_keys[0]?.key ?? null;
 
   const availableReleases = releases.map((r) => r.version);
   const availableEnvironments = environments.map((e: any) => e.environment);
@@ -138,11 +133,11 @@ export default async function IssuesPage({ params, searchParams }: Props) {
         }
       />
 
-      {/* DSN info bar */}
-      {dsn && (
+      {/* Site Key info bar */}
+      {siteKey && (
         <div className="flex items-center gap-2 px-6 py-2.5 border-b bg-muted/30 text-xs">
-          <span className="text-muted-foreground font-medium">DSN:</span>
-          <code className="font-mono text-muted-foreground truncate">{dsn}</code>
+          <span className="text-muted-foreground font-medium">Site Key:</span>
+          <code className="font-mono text-muted-foreground truncate">{siteKey}</code>
         </div>
       )}
 

@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getUser } from '@/lib/supabase-server';
 import { prisma } from '@/lib/prisma';
-import { buildDsn } from '@/lib/utils';
 import PageHeader from '@/components/layout/PageHeader';
 import CreateProjectButton from '@/components/projects/CreateProjectButton';
 import { Layers, AlertTriangle, Clock } from 'lucide-react';
@@ -19,7 +18,7 @@ export default async function ProjectsPage() {
         include: {
           projects: {
             include: {
-              api_keys: { where: { is_active: true }, take: 1 },
+              site_keys: { where: { is_active: true }, take: 1 },
               _count: {
                 select: {
                   issues: { where: { status: 'unresolved' } },
@@ -39,7 +38,7 @@ export default async function ProjectsPage() {
     role: m.role,
     projects: m.organization.projects.map((p) => ({
       ...p,
-      dsn: p.api_keys[0] ? buildDsn(p.api_keys[0].public_key, p.id) : null,
+      site_key: p.site_keys[0]?.key ?? null,
       unresolved_count: p._count.issues,
       event_count: p._count.events,
     })),
@@ -103,9 +102,9 @@ export default async function ProjectsPage() {
                   </span>
                 </div>
 
-                {project.dsn && (
+                {project.site_key && (
                   <code className="block text-xs text-muted-foreground bg-muted px-2 py-1.5 rounded font-mono truncate">
-                    {project.dsn}
+                    {project.site_key}
                   </code>
                 )}
               </Link>

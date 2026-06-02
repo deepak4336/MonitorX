@@ -2,8 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getUser } from '@/lib/supabase-server';
 import { CreateProjectSchema } from '@/lib/validations';
-import { generatePublicKey, buildDsn, slugify } from '@/lib/utils';
+import { slugify } from '@/lib/utils';
 import { ZodError } from 'zod';
+
+function generateSiteKey(): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let key = 'mx_live_';
+  for (let i = 0; i < 16; i++) {
+    key += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return key;
+}
 
 // GET /api/projects?org_id=xxx
 export async function GET(request: NextRequest) {
@@ -31,7 +40,7 @@ export async function GET(request: NextRequest) {
   const projects = await prisma.project.findMany({
     where: { organization_id: orgId },
     include: {
-      api_keys: { where: { is_active: true }, take: 1 },
+      site_keys: { where: { is_active: true }, take: 1 },
       _count: { select: { issues: true, events: true } },
     },
     orderBy: { created_at: 'desc' },
@@ -44,9 +53,7 @@ export async function GET(request: NextRequest) {
     environment: p.environment,
     organization_id: p.organization_id,
     created_at: p.created_at,
-    dsn: p.api_keys[0]
-      ? buildDsn(p.api_keys[0].public_key, p.id)
-      : null,
+    site_key: p.site_keys[0]?.key ?? null,
     issue_count: p._count.issues,
     event_count: p._count.events,
   }));
@@ -54,7 +61,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ success: true, data: result });
 }
 
-// POST /api/projects — create project + API key
+// POST /api/projects — create project + site key
 export async function POST(request: NextRequest) {
   const user = await getUser();
   if (!user) {
@@ -91,16 +98,15 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      const publicKey = generatePublicKey();
-      const apiKey = await tx.apiKey.create({
+      const siteKey = await tx.siteKey.create({
         data: {
           project_id: project.id,
-          public_key: publicKey,
+          key: generateSiteKey(),
           label: 'Default Key',
         },
       });
 
-      return { project, publicKey: apiKey.public_key };
+      return { project, siteKey: siteKey.key };
     });
 
     return NextResponse.json(
@@ -108,7 +114,7 @@ export async function POST(request: NextRequest) {
         success: true,
         data: {
           ...result.project,
-          dsn: buildDsn(result.publicKey, result.project.id),
+          site_key: result.siteKey,
         },
       },
       { status: 201 }
