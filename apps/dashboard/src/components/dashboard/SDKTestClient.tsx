@@ -47,9 +47,8 @@ export default function SDKTestClient({ dsn, projectId }: SDKTestClientProps) {
 
     try {
       // Parse DSN to get ingest URL and public key
-      const url = new URL(dsn);
-      const publicKey = url.username;
-      const ingestUrl = `${url.protocol}//${url.host}/api/events`;
+      const publicKey = dsn;
+      const ingestUrl = `${window.location.origin}/api/events`;
 
       let payload: Record<string, unknown>;
 

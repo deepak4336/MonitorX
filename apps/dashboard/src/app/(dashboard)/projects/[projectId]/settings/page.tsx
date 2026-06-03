@@ -379,9 +379,9 @@ export async function POST(request: Request) {
         {siteKey && (
           <section className="space-y-3">
             <div>
-              <h2 className="text-sm font-semibold">Test SDK Integration</h2>
+              <h2 className="text-sm font-semibold">Test Pipeline</h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Send test events to verify the pipeline.
+                Send test events to verify your Site Key and /api/events endpoint are working correctly. Remove this section before going to production.
               </p>
             </div>
             <SDKTestClient dsn={siteKey} projectId={project.id} />
